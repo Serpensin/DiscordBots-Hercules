@@ -21,7 +21,7 @@ Hercules is very much still in development and may not be the best yet, but we a
 1. Ensure Python >=3.12 is installed. Download it [here](https://www.python.org/downloads/).
 2. Clone this repository or download the zip file.
 3. Open a terminal in the "Hercules" folder where you cloned the repository or extracted the zip file.
-4. Run `git clone "https://github.com/Serpensin/hercules-obfuscator.git" Obfuscator
+4. Run `git clone "https://github.com/zeusssz/hercules-obfuscator"` Obfuscator
 5. Install luacheck with `luarocks install luacheck` if your on linux, or download it from [here](https://github.com/mpeterv/luacheck/releases/download/0.23.0/luacheck.exe) and put it at the location, where `main.py` is, if your on windows.
 6. Run `pip install -r requirements.txt` to install the dependencies.
 7. Open the file ".env.template" and complete all variables:
