@@ -36,7 +36,7 @@ os.makedirs(f'{APP_FOLDER_NAME}//Buffer', exist_ok=True)
 LOG_FOLDER = f'{APP_FOLDER_NAME}//Logs//'
 BUFFER_FOLDER = f'{APP_FOLDER_NAME}//Buffer//'
 ACTIVITY_FILE = f'{APP_FOLDER_NAME}//activity.json'
-BOT_VERSION = "1.3.4"
+BOT_VERSION = "1.3.5"
 sentry_sdk.init(
     dsn=os.getenv('SENTRY_DSN'),
     traces_sample_rate=1.0,
@@ -710,11 +710,13 @@ async def self(interaction: discord.Interaction):
 @tree.command(name = 'support', description = 'Get invite to our support server.')
 @discord.app_commands.checks.cooldown(1, 60, key=lambda i: (i.user.id))
 async def support(interaction: discord.Interaction):
-        if str(interaction.guild.id) != SUPPORTID:
-            await interaction.response.defer(ephemeral = True)
-            await interaction.followup.send(await Functions.create_support_invite(interaction), ephemeral = True)
-        else:
-            await interaction.response.send_message('You are already in our support server!', ephemeral = True)
+    if not SUPPORTID:
+        return
+    if str(interaction.guild.id) != SUPPORTID:
+        await interaction.response.defer(ephemeral = True)
+        await interaction.followup.send(await Functions.create_support_invite(interaction), ephemeral = True)
+    else:
+        await interaction.response.send_message('You are already in our support server!', ephemeral = True)
 
 
 
