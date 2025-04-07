@@ -3,8 +3,7 @@
 >[!NOTE]
 **Hercules** is a powerful Lua obfuscator designed to make your Lua code nearly impossible to reverse-engineer. With multiple layers of advanced obfuscation techniques, Hercules ensures your scripts are secure from prying eyes.
 Hercules is very much still in development and may not be the best yet, but we are committed to making it one of the best.
-Keep in mind, that this is just the bot for the obfuscator. If you want to take a look into the obfuscator itself, you can check it out [here](https://github.com/zeusssz/hercules-obfuscator).
-
+Keep in mind that this is just the bot for the obfuscator. If you want to take a look into the obfuscator itself, you can check it out [here](https://github.com/zeusssz/hercules-obfuscator).
 ## Features
 
 - **Control Flow:** Adds fake control flow structures to confuse static analysis. *(Enabled)*
