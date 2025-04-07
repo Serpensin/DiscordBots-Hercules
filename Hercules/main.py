@@ -711,6 +711,7 @@ async def self(interaction: discord.Interaction):
 @discord.app_commands.checks.cooldown(1, 60, key=lambda i: (i.user.id))
 async def support(interaction: discord.Interaction):
     if not SUPPORTID:
+        await interaction.response.send_message('There is no support server setup!', ephemeral=True)
         return
     if str(interaction.guild.id) != SUPPORTID:
         await interaction.response.defer(ephemeral = True)
