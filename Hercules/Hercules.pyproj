@@ -26,6 +26,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="CustomModules\bot_directory.py" />
+    <Compile Include="CustomModules\githubrepo.py" />
     <Compile Include="CustomModules\hercules.py" />
     <Compile Include="CustomModules\log_handler.py" />
     <Compile Include="Dockerfile" />

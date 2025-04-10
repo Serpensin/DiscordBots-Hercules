@@ -8,12 +8,14 @@ charset-normalizer
 colorama
 discord.py
 frozenlist
+GitPython
 idna
 jsonschema
 jsonschema-specifications
 multidict
 propcache
 psutil
+PyGithub
 pyrsistent
 python-dotenv
 referencing
