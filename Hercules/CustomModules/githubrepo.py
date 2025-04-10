@@ -5,10 +5,16 @@ import os
 import random
 import re
 import subprocess
+import sys
 import time
 from github import Github
 from pathlib import Path
 from uuid import uuid4
+
+
+
+if sys.version_info < (3, 7):
+    raise RuntimeError("Python 3.7 or higher is required to run this script.")
 
 
 
