@@ -112,6 +112,13 @@ class Hercules:
                 'enabled': False,
                 'explanation': "Generates or modifies code at runtime, making static analysis and prediction of behavior more challenging."
             },
+            {
+                'key': 'antitemper',
+                'name': 'Anti-Tampering',
+                'bitkey': 12,
+                'enabled': True,
+                'explanation': "Incorporates checks to detect modifications to the code, preventing unauthorized changes."
+            },
         ]
 
     def _log_and_exit(self, msg):
