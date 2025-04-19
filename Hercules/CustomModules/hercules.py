@@ -113,7 +113,7 @@ class Hercules:
                 'explanation': "Generates or modifies code at runtime, making static analysis and prediction of behavior more challenging."
             },
             {
-                'key': 'antitemper',
+                'key': 'antitamper',
                 'name': 'Anti-Tampering',
                 'bitkey': 12,
                 'enabled': True,
