@@ -378,7 +378,7 @@ class Functions():
 
     async def send_file(interaction: discord.Interaction, file_path: str):
         try:
-            await interaction.followup.send(f"{interaction.user.mention}\nObfuscation complete!", file=discord.File(file_path))
+            await interaction.followup.send(f"{interaction.user.mention}\nObfuscation complete!", file=discord.File(file_path), ephemeral=True)
         except discord.HTTPException as err:
             if err.status == 413:
                 zip_file = f'{BUFFER_FOLDER}{interaction.user.id}_{randrange(0, 9999)}.zip'
