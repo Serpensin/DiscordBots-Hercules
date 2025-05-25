@@ -36,7 +36,7 @@ os.makedirs(f'{APP_FOLDER_NAME}//Buffer', exist_ok=True)
 LOG_FOLDER = f'{APP_FOLDER_NAME}//Logs//'
 BUFFER_FOLDER = f'{APP_FOLDER_NAME}//Buffer//'
 ACTIVITY_FILE = f'{APP_FOLDER_NAME}//activity.json'
-BOT_VERSION = "1.4.0"
+BOT_VERSION = "1.4.1"
 sentry_sdk.init(
     dsn=os.getenv('SENTRY_DSN'),
     traces_sample_rate=1.0,
@@ -385,13 +385,15 @@ class Functions():
                 with ZipFile(zip_file, mode='w', compression=ZIP_DEFLATED, compresslevel=9, allowZip64=True) as f:
                     f.write(file_path)
                 try:
-                    await interaction.followup.send(f"{interaction.user.mention}\nObfuscation complete!", file=discord.File(zip_file))
+                    await interaction.followup.send(f"{interaction.user.mention}\nObfuscation complete!", file=discord.File(zip_file), ephemeral=True)
                 except discord.HTTPException as err:
                     if err.status == 413:
                         await interaction.followup.send(f"{interaction.user.mention}\nObfuscation complete! The file is too big to be sent directly.")
+        finally:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            if 'zip_file' in locals() and os.path.exists(zip_file):
                 os.remove(zip_file)
-
-        os.remove(file_path)
 
     async def create_support_invite(interaction):
         try:
