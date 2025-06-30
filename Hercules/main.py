@@ -36,7 +36,7 @@ os.makedirs(f'{APP_FOLDER_NAME}//Buffer', exist_ok=True)
 LOG_FOLDER = f'{APP_FOLDER_NAME}//Logs//'
 BUFFER_FOLDER = f'{APP_FOLDER_NAME}//Buffer//'
 ACTIVITY_FILE = f'{APP_FOLDER_NAME}//activity.json'
-BOT_VERSION = "1.4.1"
+BOT_VERSION = "1.4.2"
 sentry_sdk.init(
     dsn=os.getenv('SENTRY_DSN'),
     traces_sample_rate=1.0,
@@ -81,7 +81,7 @@ class JSONValidator:
 
     default_content = {
         "activity_type": "Playing",
-        "activity_title": "Made by Serpensin: https://gitlab.bloodygang.com/Serpensin",
+        "activity_title": "Made by Serpensin: https://serpensin.com/",
         "activity_url": "",
         "status": "online"
     }
@@ -672,7 +672,7 @@ async def self(interaction: discord.Interaction):
     embed.add_field(name="Sentry-Version", value=f"{sentry_sdk.consts.VERSION}", inline=True)
 
     embed.add_field(name="Repo", value=f"[GitHub](https://github.com/Serpensin/DiscordBots-Hercules)", inline=True)
-    embed.add_field(name="\u200b", value="\u200b", inline=True)
+    embed.add_field(name="Invite", value=f"[Invite me](https://discord.com/oauth2/authorize?client_id={bot.user.id})", inline=True)
     embed.add_field(name="\u200b", value="\u200b", inline=True)
 
     if interaction.user.id == int(OWNERID):
