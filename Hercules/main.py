@@ -36,7 +36,7 @@ os.makedirs(f'{APP_FOLDER_NAME}//Buffer', exist_ok=True)
 LOG_FOLDER = f'{APP_FOLDER_NAME}//Logs//'
 BUFFER_FOLDER = f'{APP_FOLDER_NAME}//Buffer//'
 ACTIVITY_FILE = f'{APP_FOLDER_NAME}//activity.json'
-BOT_VERSION = "1.4.3"
+BOT_VERSION = "1.4.4"
 sentry_sdk.init(
     dsn=os.getenv('SENTRY_DSN'),
     traces_sample_rate=1.0,
@@ -922,8 +922,47 @@ async def self(interaction: discord.Interaction,
     with open(file_path, 'wb') as f:
         f.write(await file.read())
 
-    with open(file_path, 'r', encoding='utf8') as f:
-        lua_code = f.read()
+    def detect_bom_encoding(file_path):
+        with open(file_path, 'rb') as f:
+            raw = f.read(4)
+        if raw.startswith(b'\xef\xbb\xbf'):
+            return 'utf-8-sig'
+        elif raw.startswith(b'\xff\xfe'):
+            return 'utf-16-le'
+        elif raw.startswith(b'\xfe\xff'):
+            return 'utf-16-be'
+        elif raw.startswith(b'\xff\xfe\x00\x00'):
+            return 'utf-32-le'
+        elif raw.startswith(b'\x00\x00\xfe\xff'):
+            return 'utf-32-be'
+        return None
+    
+    encoding = detect_bom_encoding(file_path)
+    if encoding:
+        with open(file_path, 'r', encoding=encoding) as f:
+            lua_code = f.read()
+        with open(file_path, 'w', encoding='utf8') as f:
+            f.write(lua_code)
+    else:
+        try:
+            with open(file_path, 'r', encoding='utf8') as f:
+                lua_code = f.read()
+        except UnicodeDecodeError:
+            for fallback_encoding in ['cp1252', 'latin-1']:
+                try:
+                    with open(file_path, 'r', encoding=fallback_encoding) as f:
+                        lua_code = f.read()
+                    with open(file_path, 'w', encoding='utf8') as f:
+                        f.write(lua_code)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            else:
+                with open(file_path, 'rb') as f:
+                    raw = f.read()
+                lua_code = raw.decode('utf-8', errors='replace')
+                with open(file_path, 'w', encoding='utf8') as f:
+                    f.write(lua_code)
 
     isValid, conout = Hercules.isValidLUASyntax(lua_code)
     if not isValid:
