@@ -859,7 +859,16 @@ async def self(interaction: discord.Interaction,
     await interaction.response.defer(ephemeral=True)
     valid, conout = await Functions.is_valid_url_and_lua_syntax(url)
     if not valid:
-        await interaction.edit_original_response(content=f"The URL is not reachable or does not contain valid Lua syntax.:\n```txt\n{conout}```")
+        # Check if output exceeds Discord's character limit (adding some margin for the message text and markdown)
+        if len(conout) > 1900:
+            with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, encoding='utf-8', mode='w') as temp_file:
+                temp_file.write(conout)
+                temp_file_path = temp_file.name
+            await interaction.edit_original_response(content="The URL is not reachable or does not contain valid Lua syntax.")
+            await interaction.followup.send(content="Details:", file=discord.File(temp_file_path, filename='error_output.txt'), ephemeral=True)
+            os.remove(temp_file_path)
+        else:
+            await interaction.edit_original_response(content=f"The URL is not reachable or does not contain valid Lua syntax.:\n```txt\n{conout}```")
         return
     else:
         original_code = conout
@@ -966,7 +975,16 @@ async def self(interaction: discord.Interaction,
 
     isValid, conout = Hercules.isValidLUASyntax(lua_code)
     if not isValid:
-        await interaction.edit_original_response(content=f"The uploaded file does not contain valid Lua syntax.:\n```txt\n{conout}```")
+        # Check if output exceeds Discord's character limit (adding some margin for the message text and markdown)
+        if len(conout) > 1900:
+            with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, encoding='utf-8', mode='w') as temp_file:
+                temp_file.write(conout)
+                temp_file_path = temp_file.name
+            await interaction.edit_original_response(content="The uploaded file does not contain valid Lua syntax.")
+            await interaction.followup.send(content="Luacheck output:", file=discord.File(temp_file_path, filename='luacheck_output.txt'), ephemeral=True)
+            os.remove(temp_file_path)
+        else:
+            await interaction.edit_original_response(content=f"The uploaded file does not contain valid Lua syntax.:\n```txt\n{conout}```")
         os.remove(file_path)
     else:
         view = ModeSelectionView()
