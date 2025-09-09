@@ -34,7 +34,7 @@ RUN apk update && \
 LABEL maintainer="Discord: piko.piko.no.mi (970119359840284743)" \
       description="Hercules Bot for obfuscating lua files." \
       release=$BUILD_DATE \
-      VERSION="1.4.5" \
+      VERSION="1.4.6" \
       url="https://github.com/Serpensin/DiscordBots-Hercules"
 
 CMD ["python3", "main.py"]

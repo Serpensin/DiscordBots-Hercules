@@ -36,7 +36,7 @@ os.makedirs(f'{APP_FOLDER_NAME}//Buffer', exist_ok=True)
 LOG_FOLDER = f'{APP_FOLDER_NAME}//Logs//'
 BUFFER_FOLDER = f'{APP_FOLDER_NAME}//Buffer//'
 ACTIVITY_FILE = f'{APP_FOLDER_NAME}//activity.json'
-BOT_VERSION = "1.4.5"
+BOT_VERSION = "1.4.6"
 sentry_sdk.init(
     dsn=os.getenv('SENTRY_DSN'),
     traces_sample_rate=1.0,
@@ -251,19 +251,19 @@ class aclient(discord.AutoShardedClient):
         await tree.sync()
         discord_logger.info('Synced.')
         self.synced = True
-        stats = bot_directory.Stats(bot=bot,
+        self.stats = bot_directory.Stats(bot=bot,
                                     logger=program_logger,
                                     TOPGG_TOKEN=TOPGG_TOKEN,
                                     )
-        bot.loop.create_task(stats.task())
 
     async def on_ready(self):
         await bot.change_presence(activity = self.Presence.get_activity(), status = self.Presence.get_status())
         if self.initialized:
             return
+        self.stats.start_stats_update()
         program_logger.info(r'''
                            _
-  /\  /\___ _ __ ___ _   _| | ___  ___ 
+  /\  /\___ _ __ ___ _   _| | ___  ___
  / /_/ / _ \ '__/ __| | | | |/ _ \/ __|
 / __  /  __/ | | (__| |_| | |  __/\__ \
 \/ /_/ \___|_|  \___|\__,_|_|\___||___/
@@ -273,7 +273,7 @@ class aclient(discord.AutoShardedClient):
         start_time = datetime.datetime.now(datetime.UTC)
         program_logger.info(f"Initialization completed in {time.time() - startupTime_start} seconds.")
         self.initialized = True
-        
+
 bot = aclient()
 tree = discord.app_commands.CommandTree(bot)
 tree.on_error = bot.on_app_command_error
@@ -627,6 +627,8 @@ class Owner():
         [task.cancel() for task in tasks]
         await asyncio.gather(*tasks, return_exceptions=True)
 
+        bot.stats.stop_stats_update()
+
         await bot.close()
 
 
@@ -752,7 +754,7 @@ class ModeSelectionView(discord.ui.View):
             bit_position = method['bitkey']
             is_selected = self.selected_bits & (1 << bit_position) != 0
             row = (idx // self.buttons_per_row) + 1
-    
+
             button = self.MethodButton(
                 label=method_name,
                 bit_position=bit_position,
@@ -945,7 +947,7 @@ async def self(interaction: discord.Interaction,
         elif raw.startswith(b'\x00\x00\xfe\xff'):
             return 'utf-32-be'
         return None
-    
+
     encoding = detect_bom_encoding(file_path)
     if encoding:
         with open(file_path, 'r', encoding=encoding) as f:
