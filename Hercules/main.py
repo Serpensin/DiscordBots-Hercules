@@ -36,7 +36,7 @@ os.makedirs(f'{APP_FOLDER_NAME}//Buffer', exist_ok=True)
 LOG_FOLDER = f'{APP_FOLDER_NAME}//Logs//'
 BUFFER_FOLDER = f'{APP_FOLDER_NAME}//Buffer//'
 ACTIVITY_FILE = f'{APP_FOLDER_NAME}//activity.json'
-BOT_VERSION = "1.4.6"
+BOT_VERSION = "1.4.7"
 sentry_sdk.init(
     dsn=os.getenv('SENTRY_DSN'),
     traces_sample_rate=1.0,
@@ -999,14 +999,11 @@ async def self(interaction: discord.Interaction,
         if not success:
             view = AskSendDebug()
 
-            if len(conout) > 1900:
-                with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, encoding='utf-8', mode='w') as temp_file:
-                    temp_file.write(conout)
-                    temp_file_path = temp_file.name
-                message = await interaction.followup.send(f"{interaction.user.mention}\nObfuscation failed. Please try again.\nSend the original file to the owner for debug?", file=discord.File(temp_file_path, filename='Error.txt'), view=view, ephemeral=True)
-            else:
-                message = await interaction.followup.send(f"{interaction.user.mention}\nObfuscation failed. Please try again.\nSend the original file to the owner for debug?\n```txt\n{conout}```")
+            with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, encoding='utf-8', mode='w') as temp_file:
+                temp_file.write(conout)
+                temp_file_path = temp_file.name
 
+            message = await interaction.followup.send(f"{interaction.user.mention}\nObfuscation failed. Please try again.\nSend the original file to the owner for debug?", file=discord.File(temp_file_path, filename='Error.txt'), view=view, ephemeral=True)
             await interaction.delete_original_response()
             view.message = message
             view.error_text = conout
