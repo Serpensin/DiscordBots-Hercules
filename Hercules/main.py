@@ -36,7 +36,7 @@ os.makedirs(f'{APP_FOLDER_NAME}//Buffer', exist_ok=True)
 LOG_FOLDER = f'{APP_FOLDER_NAME}//Logs//'
 BUFFER_FOLDER = f'{APP_FOLDER_NAME}//Buffer//'
 ACTIVITY_FILE = f'{APP_FOLDER_NAME}//activity.json'
-BOT_VERSION = "1.4.7"
+BOT_VERSION = "1.4.8"
 sentry_sdk.init(
     dsn=os.getenv('SENTRY_DSN'),
     traces_sample_rate=1.0,
@@ -815,7 +815,7 @@ class AskSendDebug(discord.ui.View):
 
         success = await Functions.send_debug_files(interaction, error_text=self.error_text, original_code=self.original_code)
 
-        if not success:
+        if success:
             await interaction.edit_original_response(content="Debug files sent successfully.", view=self)
         else:
             await interaction.edit_original_response(content="Debug files couldn't be sent!", view=self)
