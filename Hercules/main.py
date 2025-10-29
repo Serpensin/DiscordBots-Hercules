@@ -36,7 +36,7 @@ os.makedirs(f'{APP_FOLDER_NAME}//Buffer', exist_ok=True)
 LOG_FOLDER = f'{APP_FOLDER_NAME}//Logs//'
 BUFFER_FOLDER = f'{APP_FOLDER_NAME}//Buffer//'
 ACTIVITY_FILE = f'{APP_FOLDER_NAME}//activity.json'
-BOT_VERSION = "1.4.8"
+BOT_VERSION = "1.4.9"
 sentry_sdk.init(
     dsn=os.getenv('SENTRY_DSN'),
     traces_sample_rate=1.0,
@@ -637,17 +637,20 @@ class Owner():
 #Ping
 @tree.command(name = 'ping', description = 'Test, if the bot is responding.')
 @discord.app_commands.checks.cooldown(1, 30, key=lambda i: (i.user.id))
-async def self(interaction: discord.Interaction):
+async def cmd_ping(interaction: discord.Interaction):
+    await interaction.response.defer(thinking=True)
+
     before = time.monotonic()
-    await interaction.response.send_message('Pong!')
+    await interaction.followup.send('Pong!')
     ping = (time.monotonic() - before) * 1000
-    await interaction.edit_original_response(content=f'Pong! \nCommand execution time: `{int(ping)}ms`\nPing to gateway: `{int(bot.latency * 1000)}ms`')
+    gateway_ping = bot.latency * 1000 if interaction.guild is None else bot.shards.get(interaction.guild.shard_id).latency * 1000
+    await interaction.edit_original_response(content=f'Pong! \nCommand execution time: `{ping:.2f}ms`\nPing to gateway: `{gateway_ping:.2f}ms`')
 
 
 #Bot Info
 @tree.command(name = 'botinfo', description = 'Get information about the bot.')
 @discord.app_commands.checks.cooldown(1, 60, key=lambda i: (i.user.id))
-async def self(interaction: discord.Interaction):
+async def cmd_botinfo(interaction: discord.Interaction):
     member_count = sum(guild.member_count for guild in bot.guilds)
 
     embed = discord.Embed(
@@ -697,7 +700,7 @@ async def self(interaction: discord.Interaction):
 #Help
 @tree.command(name = 'help', description = 'Explains how to use this obfuscator.')
 @discord.app_commands.checks.cooldown(1, 30, key=lambda i: (i.user.id))
-async def self(interaction: discord.Interaction):
+async def cmd_help(interaction: discord.Interaction):
     commands_help = (
         "**/obfuscate_url [url]**:\nSubmit a URL (e.g. from pastebin) containing a Lua file. Hercules will process and obfuscate it.\n\n"
         "**/obfuscate_file [file]**:\nUpload a `.lua` file along with this command. Hercules will add it to the queue and notify you once it's done.\n\n"
@@ -722,7 +725,7 @@ async def self(interaction: discord.Interaction):
 #Support Invite
 @tree.command(name = 'support', description = 'Get invite to our support server.')
 @discord.app_commands.checks.cooldown(1, 60, key=lambda i: (i.user.id))
-async def support(interaction: discord.Interaction):
+async def cmd_support(interaction: discord.Interaction):
     if not SUPPORTID:
         await interaction.response.send_message('There is no support server setup!', ephemeral=True)
         return
@@ -854,7 +857,7 @@ class AskSendDebug(discord.ui.View):
         discord.app_commands.Choice(name='Maximum parameters for heavier obfuscation.', value='max')
         ]
     )
-async def self(interaction: discord.Interaction,
+async def cmd_obfuscate_url(interaction: discord.Interaction,
                url: str,
                optional_preset: str = None
                ):
@@ -917,10 +920,10 @@ async def self(interaction: discord.Interaction,
         discord.app_commands.Choice(name='Maximum parameters for heavier obfuscation.', value='max')
         ]
     )
-async def self(interaction: discord.Interaction,
-               file: discord.Attachment,
-               optional_preset: str = None
-               ):
+async def cmd_obfuscate_file(interaction: discord.Interaction,
+             file: discord.Attachment,
+   optional_preset: str = None
+            ):
     await interaction.response.defer(ephemeral=True)
     if not file.filename.endswith('.lua'):
         await interaction.edit_original_response(content="Please upload a `.lua` file.")
@@ -1018,7 +1021,7 @@ async def self(interaction: discord.Interaction,
 @tree.command(name = 'check_url', description = 'Check if the URL is reachable and contains valid Lua syntax.')
 @discord.app_commands.checks.cooldown(2, 60, key=lambda i: (i.user.id))
 @discord.app_commands.describe(url = 'The URL to check.')
-async def self(interaction: discord.Interaction, url: str):
+async def cmd_check_url(interaction: discord.Interaction, url: str):
     await interaction.response.defer(ephemeral=True)
     valid, conout = await Functions.is_valid_url_and_lua_syntax(url)
     if not valid:
@@ -1035,7 +1038,7 @@ async def self(interaction: discord.Interaction, url: str):
 @tree.command(name = 'check_file', description = 'Check if the uploaded file contains valid Lua syntax.')
 @discord.app_commands.checks.cooldown(2, 60, key=lambda i: (i.user.id))
 @discord.app_commands.describe(file = 'The file to check.')
-async def self(interaction: discord.Interaction, file: discord.Attachment):
+async def cmd_check_file(interaction: discord.Interaction, file: discord.Attachment):
     await interaction.response.defer(ephemeral=True)
     if not file.filename.endswith('.lua'):
         await interaction.edit_original_response(content="Please upload a `.lua` file.")

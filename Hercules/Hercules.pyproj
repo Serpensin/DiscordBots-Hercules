@@ -25,9 +25,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="CustomModules\bot_directory.py" />
     <Compile Include="CustomModules\hercules.py" />
-    <Compile Include="CustomModules\log_handler.py" />
     <Compile Include="Dockerfile" />
     <Compile Include="main.py" />
     <Compile Include="__init__.py" />
@@ -63,7 +61,7 @@
     <Interpreter Include="env\">
       <Id>env</Id>
       <Version>3.12</Version>
-      <Description>env (Python 3.12 (64-bit))</Description>
+      <Description>env (Python 3.12.10)</Description>
       <InterpreterPath>Scripts\python.exe</InterpreterPath>
       <WindowsInterpreterPath>Scripts\pythonw.exe</WindowsInterpreterPath>
       <PathEnvironmentVariable>PYTHONPATH</PathEnvironmentVariable>
