@@ -36,7 +36,7 @@ os.makedirs(f'{APP_FOLDER_NAME}//Buffer', exist_ok=True)
 LOG_FOLDER = f'{APP_FOLDER_NAME}//Logs//'
 BUFFER_FOLDER = f'{APP_FOLDER_NAME}//Buffer//'
 ACTIVITY_FILE = f'{APP_FOLDER_NAME}//activity.json'
-BOT_VERSION = "1.4.10"
+BOT_VERSION = "1.4.11"
 sentry_sdk.init(
     dsn=os.getenv('SENTRY_DSN'),
     traces_sample_rate=1.0,
@@ -413,12 +413,18 @@ class Functions():
         channels: discord.TextChannel = guild.text_channels
         for channel in channels:
             try:
+                if interaction.guild is not None:
+                    reason=f"Created invite for {interaction.user.name} from server {interaction.guild.name} ({interaction.guild_id})"
+                else:
+                    reason=f"Created invite for {interaction.user.name} (DM)"
+
                 invite: discord.Invite = await channel.create_invite(
-                    reason=f"Created invite for {interaction.user.name} from server {interaction.guild.name} ({interaction.guild_id})",
+                    reason=reason,
                     max_age=60,
                     max_uses=1,
                     unique=True
                 )
+
                 return invite.url
             except discord.Forbidden:
                 continue
