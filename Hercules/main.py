@@ -5,6 +5,7 @@ import aiohttp
 import asyncio
 import datetime
 import discord
+import hercules
 import json
 import jsonschema
 import os
@@ -16,7 +17,6 @@ import signal
 import sys
 import tempfile
 from CustomModules import bot_directory
-from CustomModules import hercules
 from CustomModules import log_handler
 from dotenv import load_dotenv
 from random import randrange
@@ -36,7 +36,7 @@ os.makedirs(f'{APP_FOLDER_NAME}//Buffer', exist_ok=True)
 LOG_FOLDER = f'{APP_FOLDER_NAME}//Logs//'
 BUFFER_FOLDER = f'{APP_FOLDER_NAME}//Buffer//'
 ACTIVITY_FILE = f'{APP_FOLDER_NAME}//activity.json'
-BOT_VERSION = "1.4.9"
+BOT_VERSION = "1.4.10"
 sentry_sdk.init(
     dsn=os.getenv('SENTRY_DSN'),
     traces_sample_rate=1.0,
@@ -253,7 +253,7 @@ class aclient(discord.AutoShardedClient):
         self.synced = True
         self.stats = bot_directory.Stats(bot=bot,
                                     logger=program_logger,
-                                    TOPGG_TOKEN=TOPGG_TOKEN,
+                                    topgg_token=TOPGG_TOKEN,
                                     )
 
     async def on_ready(self):
@@ -726,14 +726,18 @@ async def cmd_help(interaction: discord.Interaction):
 @tree.command(name = 'support', description = 'Get invite to our support server.')
 @discord.app_commands.checks.cooldown(1, 60, key=lambda i: (i.user.id))
 async def cmd_support(interaction: discord.Interaction):
+    await interaction.response.defer(thinking=True)
+
     if not SUPPORTID:
-        await interaction.response.send_message('There is no support server setup!', ephemeral=True)
+        await interaction.followup.send('There is no support server setup!', ephemeral=True)
+        return
+    if interaction.guild is None:
+        await interaction.followup.send(await Functions.create_support_invite(interaction), ephemeral=True)
         return
     if str(interaction.guild.id) != SUPPORTID:
-        await interaction.response.defer(ephemeral = True)
-        await interaction.followup.send(await Functions.create_support_invite(interaction), ephemeral = True)
+        await interaction.followup.send(await Functions.create_support_invite(interaction), ephemeral=True)
     else:
-        await interaction.response.send_message('You are already in our support server!', ephemeral = True)
+        await interaction.followup.send('You are already in our support server!', ephemeral=True)
 
 
 

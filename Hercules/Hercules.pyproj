@@ -25,7 +25,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="CustomModules\hercules.py" />
+    <Compile Include="hercules.py" />
     <Compile Include="Dockerfile" />
     <Compile Include="main.py" />
     <Compile Include="__init__.py" />
@@ -52,7 +52,6 @@
     <Content Include="watermark.lua" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="CustomModules\" />
     <Folder Include="Obfuscator\" />
     <Folder Include="Obfuscator\src\" />
     <Folder Include="Obfuscator\src\modules\" />

@@ -259,6 +259,6 @@ class Hercules:
         Returns:
             A tuple containing the obfuscator folder and file path if found, otherwise (None, None).
         """
-        folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Obfuscator', 'src')).replace('\\', '/')
+        folder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'Obfuscator', 'src')).replace('\\', '/')
         file = os.path.join(folder, 'hercules.lua').replace('\\', '/')
         return (folder, file) if os.path.exists(file) else (None, None)
