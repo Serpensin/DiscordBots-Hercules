@@ -51,7 +51,7 @@ OWNERID = os.getenv('OWNER_ID')
 LOG_LEVEL = os.getenv('LOG_LEVEL')
 SUPPORTID = os.getenv('SUPPORT_SERVER')
 TOPGG_TOKEN = os.getenv('TOPGG_TOKEN')
-DEBUG_CHANNEL_ID = int(os.getenv('DEBUG_CHANNEL', '1358836394398847155'))
+DEBUG_CHANNEL_ID = int(os.getenv('DEBUG_CHANNEL') or '1358836394398847155')
 
 #Logger init
 log_manager = log_handler.LogManager(LOG_FOLDER, BOT_NAME, LOG_LEVEL)
