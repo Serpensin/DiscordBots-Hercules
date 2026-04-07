@@ -371,3 +371,4 @@ FodyWeavers.xsd
 /Hercules/luacheck.exe
 /release.bat
 /debug_build_docker_run.bat
+.python-version
