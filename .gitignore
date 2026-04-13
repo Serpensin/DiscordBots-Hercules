@@ -372,4 +372,4 @@ FodyWeavers.xsd
 /release.bat
 /debug_build_docker_run.bat
 .python-version
-Hercules-Bot/activity.json
+Hercules-Bot/

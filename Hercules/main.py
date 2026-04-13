@@ -1,4 +1,4 @@
-﻿#Import
+#Import
 import time
 startupTime_start = time.time()
 import aiohttp
@@ -36,7 +36,7 @@ os.makedirs(f'{APP_FOLDER_NAME}//Buffer', exist_ok=True)
 LOG_FOLDER = f'{APP_FOLDER_NAME}//Logs//'
 BUFFER_FOLDER = f'{APP_FOLDER_NAME}//Buffer//'
 ACTIVITY_FILE = f'{APP_FOLDER_NAME}//activity.json'
-BOT_VERSION = "1.4.11"
+BOT_VERSION = "1.5.0"
 sentry_sdk.init(
     dsn=os.getenv('SENTRY_DSN'),
     traces_sample_rate=1.0,
@@ -45,36 +45,35 @@ sentry_sdk.init(
     release=f'{BOT_NAME}@{BOT_VERSION}'
 )
 
-#Load env
 TOKEN = os.getenv('TOKEN')
 OWNERID = os.getenv('OWNER_ID')
 LOG_LEVEL = os.getenv('LOG_LEVEL')
 SUPPORTID = os.getenv('SUPPORT_SERVER')
 TOPGG_TOKEN = os.getenv('TOPGG_TOKEN')
-DEBUG_CHANNEL_ID = int(os.getenv('DEBUG_CHANNEL') or '1358836394398847155')
+DEBUG_CHANNEL_ID = int(os.getenv('DEBUG_CHANNEL', '1358836394398847155'))
+HERCULES_API_URL = os.getenv('HERCULES_API_URL', 'http://localhost:5000')
+HERCULES_API_KEY = os.getenv('HERCULES_API_KEY')
 
-#Logger init
 log_manager = log_handler.LogManager(LOG_FOLDER, BOT_NAME, LOG_LEVEL)
 discord_logger = log_manager.get_logger('discord')
 program_logger = log_manager.get_logger('Program')
 program_logger.info('Engine powering up...')
 
-Hercules = hercules.Hercules(program_logger)
+Hercules = hercules.Hercules(program_logger, HERCULES_API_URL, HERCULES_API_KEY)
 
-#Create activity.json if not exists
 class JSONValidator:
     schema = {
         "type" : "object",
         "properties" : {
             "activity_type" : {
                 "type" : "string",
-                "enum" : ["Playing", "Streaming", "Listening", "Watching", "Competing"]
+                "enum": ["Playing", "Streaming", "Listening", "Watching", "Competing"]
             },
             "activity_title" : {"type" : "string"},
             "activity_url" : {"type" : "string"},
             "status" : {
                 "type" : "string",
-                "enum" : ["online", "idle", "dnd", "invisible"]
+                "enum": ["online", "idle", "dnd", "invisible"]
             },
         },
     }
@@ -94,7 +93,7 @@ class JSONValidator:
             with open(self.file_path, 'r') as file:
                 try:
                     data = json.load(file)
-                    jsonschema.validate(instance=data, schema=self.schema)  # validate the data
+                    jsonschema.validate(instance=data, schema=self.schema)
                 except (jsonschema.exceptions.ValidationError, json.decoder.JSONDecodeError) as e:
                     program_logger.error(f'ValidationError: {e}')
                     self.write_default_content()
@@ -110,19 +109,10 @@ validator.validate_and_fix_json()
 
 class aclient(discord.AutoShardedClient):
     def __init__(self):
-
         intents = discord.Intents.default()
-        #intents.guild_messages = True
-        #intents.members = True
-
-        super().__init__(owner_id = OWNERID,
-                              intents = intents,
-                              status = discord.Status.invisible,
-                              auto_reconnect = True
-                        )
+        super().__init__(owner_id=OWNERID, intents=intents, status=discord.Status.invisible, auto_reconnect=True)
         self.synced = False
         self.initialized = False
-
 
     class Presence():
         @staticmethod
@@ -157,7 +147,6 @@ class aclient(discord.AutoShardedClient):
             elif status == 'invisible':
                 return discord.Status.invisible
 
-
     async def on_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError) -> None:
         options = interaction.data.get("options")
         option_values = ""
@@ -187,7 +176,7 @@ class aclient(discord.AutoShardedClient):
                     discord_logger.warning(f"Unexpected error while sending message: {e}")
             finally:
                 try:
-                    program_logger.warning(f"{error} -> {option_values} | Invoked by {interaction.user.name} ({interaction.user.id}) @ {interaction.guild.name} ({interaction.guild.id}) with Language {interaction.locale[1]}")
+                    program_logger.warning(f"{error} -> {option_values} | Invoked by {interaction.user.name} ({interaction.user.id}) @ {interaction.guild.name} ({interaction.user.id}) with Language {interaction.locale[1]}")
                 except AttributeError:
                     program_logger.warning(f"{error} -> {option_values} | Invoked by {interaction.user.name} ({interaction.user.id}) with Language {interaction.locale[1]}")
                 sentry_sdk.capture_exception(error)
@@ -251,13 +240,10 @@ class aclient(discord.AutoShardedClient):
         await tree.sync()
         discord_logger.info('Synced.')
         self.synced = True
-        self.stats = bot_directory.Stats(bot=bot,
-                                    logger=program_logger,
-                                    topgg_token=TOPGG_TOKEN,
-                                    )
+        self.stats = bot_directory.Stats(bot=bot, logger=program_logger, topgg_token=TOPGG_TOKEN)
 
     async def on_ready(self):
-        await bot.change_presence(activity = self.Presence.get_activity(), status = self.Presence.get_status())
+        await bot.change_presence(activity=self.Presence.get_activity(), status=self.Presence.get_status())
         if self.initialized:
             return
         self.stats.start_stats_update()
@@ -289,11 +275,8 @@ class SignalHandler:
         bot.loop.create_task(Owner.shutdown(owner))
 
 
-
-#Fix error on windows on shutdown
 if platform.system() == 'Windows':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
 
 
 class Tasks():
@@ -312,18 +295,8 @@ class Tasks():
             program_logger.warning(f'Error while starting health server: {e}')
 
 
-#Functions
 class Functions():
     async def get_or_fetch(item: str, item_id: int) -> Optional[Any]:
-        """
-        Attempts to retrieve an object using the 'get_<item>' method of the bot class, and
-        if not found, attempts to retrieve it using the 'fetch_<item>' method.
-
-        :param item: Name of the object to retrieve
-        :param item_id: ID of the object to retrieve
-        :return: Object if found, else None
-        :raises AttributeError: If the required methods are not found in the bot class
-        """
         get_method_name = f'get_{item}'
         fetch_method_name = f'fetch_{item}'
 
@@ -367,7 +340,7 @@ class Functions():
                     if response.status not in [200, 204, 301, 302]:
                         return False, f"HTTP Error: {response.status}"
                     lua_code = await response.text()
-                    isValid, conout = Hercules.isValidLUASyntax(lua_code)
+                    isValid, conout = await Hercules.isValidLUASyntax(lua_code)
                     if isValid:
                         return True, lua_code
                     else:
@@ -414,9 +387,9 @@ class Functions():
         for channel in channels:
             try:
                 if interaction.guild is not None:
-                    reason=f"Created invite for {interaction.user.name} from server {interaction.guild.name} ({interaction.guild_id})"
+                    reason = f"Created invite for {interaction.user.name} from server {interaction.guild.name} ({interaction.guild_id})"
                 else:
-                    reason=f"Created invite for {interaction.user.name} (DM)"
+                    reason = f"Created invite for {interaction.user.name} (DM)"
 
                 invite: discord.Invite = await channel.create_invite(
                     reason=reason,
@@ -471,7 +444,6 @@ class Functions():
                 os.remove(temp_file_path)
 
 
-##Owner Commands
 class Owner():
     async def log(message, args):
         async def __wrong_selection():
@@ -539,6 +511,7 @@ class Owner():
             await message.channel.send('```'
                                        'activity [playing/streaming/listening/watching/competing] [title] (url) - Set the activity of the bot\n'
                                        '```')
+
         def isURL(zeichenkette):
             try:
                 ergebnis = urlparse(zeichenkette)
@@ -587,7 +560,7 @@ class Owner():
             return
         with open(ACTIVITY_FILE, 'w', encoding='utf8') as f:
             json.dump(data, f, indent=2)
-        await bot.change_presence(activity = bot.Presence.get_activity(), status = bot.Presence.get_status())
+        await bot.change_presence(activity=bot.Presence.get_activity(), status=bot.Presence.get_status())
         await message.channel.send(f'Activity set to {action} {title}{" " + url if url else ""}.')
 
     async def status(message, args):
@@ -615,7 +588,7 @@ class Owner():
             return
         with open(ACTIVITY_FILE, 'w', encoding='utf8') as f:
             json.dump(data, f, indent=2)
-        await bot.change_presence(activity = bot.Presence.get_activity(), status = bot.Presence.get_status())
+        await bot.change_presence(activity=bot.Presence.get_activity(), status=bot.Presence.get_status())
         await message.channel.send(f'Status set to {action}.')
 
     async def shutdown(message):
@@ -638,10 +611,7 @@ class Owner():
         await bot.close()
 
 
-
-##Bot Commands
-#Ping
-@tree.command(name = 'ping', description = 'Test, if the bot is responding.')
+@tree.command(name='ping', description='Test, if the bot is responding.')
 @discord.app_commands.checks.cooldown(1, 30, key=lambda i: (i.user.id))
 async def cmd_ping(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
@@ -653,8 +623,7 @@ async def cmd_ping(interaction: discord.Interaction):
     await interaction.edit_original_response(content=f'Pong! \nCommand execution time: `{ping:.2f}ms`\nPing to gateway: `{gateway_ping:.2f}ms`')
 
 
-#Bot Info
-@tree.command(name = 'botinfo', description = 'Get information about the bot.')
+@tree.command(name='botinfo', description='Get information about the bot.')
 @discord.app_commands.checks.cooldown(1, 60, key=lambda i: (i.user.id))
 async def cmd_botinfo(interaction: discord.Interaction):
     member_count = sum(guild.member_count for guild in bot.guilds)
@@ -690,7 +659,6 @@ async def cmd_botinfo(interaction: discord.Interaction):
     embed.add_field(name="\u200b", value="\u200b", inline=True)
 
     if interaction.user.id == int(OWNERID):
-        # Add CPU and RAM usage
         process = psutil.Process(os.getpid())
         cpu_usage = process.cpu_percent()
         ram_usage = round(process.memory_percent(), 2)
@@ -703,15 +671,14 @@ async def cmd_botinfo(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
-#Help
-@tree.command(name = 'help', description = 'Explains how to use this obfuscator.')
+@tree.command(name='help', description='Explains how to use this obfuscator.')
 @discord.app_commands.checks.cooldown(1, 30, key=lambda i: (i.user.id))
 async def cmd_help(interaction: discord.Interaction):
     commands_help = (
         "**/obfuscate_url [url]**:\nSubmit a URL (e.g. from pastebin) containing a Lua file. Hercules will process and obfuscate it.\n\n"
         "**/obfuscate_file [file]**:\nUpload a `.lua` file along with this command. Hercules will add it to the queue and notify you once it's done.\n\n"
         "**/check_url [url]**:\nCheck if a URL (e.g. from pastebin) contains valid Lua syntax.\n\n"
-        "**/check_file [file]**:\nUpload a `.lua` file along with this command to check if it contains valid Lua syntax.\n\n\n"
+        "**/check_file [file]**:\nUpload a `.lua` file along with this command to check if it contains valid Lua syntax.\n\n"
     )
 
     methods_explanations = "**Obfuscation Methods:**\n\n"
@@ -724,12 +691,11 @@ async def cmd_help(interaction: discord.Interaction):
         color=discord.Color.blue()
     )
 
-    embed.set_footer(text="Happy obfuscating! 🛡️")
+    embed.set_footer(text="Happy obfuscating!")
     await interaction.response.send_message(embed=embed)
 
 
-#Support Invite
-@tree.command(name = 'support', description = 'Get invite to our support server.')
+@tree.command(name='support', description='Get invite to our support server.')
 @discord.app_commands.checks.cooldown(1, 60, key=lambda i: (i.user.id))
 async def cmd_support(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
@@ -741,27 +707,35 @@ async def cmd_support(interaction: discord.Interaction):
         await interaction.followup.send(await Functions.create_support_invite(interaction), ephemeral=True)
         return
     if str(interaction.guild.id) != SUPPORTID:
-        await interaction.followup.send(await Functions.create_support_invite(interaction), ephemeral=True)
+        await interaction.followup.send(await Functions.create_support_invite(interaction))
     else:
         await interaction.followup.send('You are already in our support server!', ephemeral=True)
 
 
-
-
-##Obfucation Commands
-#View
 class ModeSelectionView(discord.ui.View):
-    def __init__(self):
+    def __init__(self, preset_methods: list = None):
         super().__init__(timeout=30)
-        self.selected_bits = sum((1 << method['bitkey']) for method in Hercules.methods if method['enabled'])
         self.timedout = False
         self.buttons_per_row = 5
-        self.create_buttons()
+        self.create_buttons(preset_methods)
 
     def toggle_bit(self, bit_position):
         self.selected_bits ^= (1 << bit_position)
 
-    def create_buttons(self):
+    def create_buttons(self, preset_methods: list = None):
+        if preset_methods is not None:
+            self.selected_bits = sum(
+                (1 << method['bitkey'])
+                for method in Hercules.methods
+                if method['key'] in preset_methods and method['enabled']
+            )
+        else:
+            self.selected_bits = sum(
+                (1 << method['bitkey'])
+                for method in Hercules.methods
+                if method['enabled']
+            )
+
         for idx, method in enumerate(Hercules.methods):
             method_name = method['name']
             bit_position = method['bitkey']
@@ -854,27 +828,19 @@ class AskSendDebug(discord.ui.View):
         await interaction.response.edit_message(content="Debug files were not sent!", view=self)
 
 
-#Fetch file from URL
-@tree.command(name = 'obfuscate_url', description = 'Submit a URL containing a Lua file.')
-# @discord.app_commands.checks.cooldown(1, 60, key=lambda i: (i.user.id))
-@discord.app_commands.describe(url = 'The URL of the Lua file.',
-                               optional_preset = 'Optional presets that can be used.'
-                               )
+@tree.command(name='obfuscate_url', description='Submit a URL containing a Lua file.')
+@discord.app_commands.describe(url='The URL of the Lua file.', optional_preset='Optional presets that can be used.')
 @discord.app_commands.choices(
-    optional_preset = [
-        discord.app_commands.Choice(name='Minimal parameters for lighter obfuscation.', value='min'),
-        discord.app_commands.Choice(name='Moderate parameters for balanced obfuscation.', value='mid'),
-        discord.app_commands.Choice(name='Maximum parameters for heavier obfuscation.', value='max')
-        ]
-    )
-async def cmd_obfuscate_url(interaction: discord.Interaction,
-               url: str,
-               optional_preset: str = None
-               ):
+    optional_preset=[
+        discord.app_commands.Choice(name='Light obfuscation for basic protection', value='light'),
+        discord.app_commands.Choice(name='Balanced obfuscation with good protection', value='balanced'),
+        discord.app_commands.Choice(name='Heavy obfuscation with maximum protection', value='heavy')
+    ]
+)
+async def cmd_obfuscate_url(interaction: discord.Interaction, url: str, optional_preset: str = None):
     await interaction.response.defer(ephemeral=True)
     valid, conout = await Functions.is_valid_url_and_lua_syntax(url)
     if not valid:
-        # Check if output exceeds Discord's character limit (adding some margin for the message text and markdown)
         if len(conout) > 1900:
             with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, encoding='utf-8', mode='w') as temp_file:
                 temp_file.write(conout)
@@ -887,7 +853,8 @@ async def cmd_obfuscate_url(interaction: discord.Interaction,
         return
     else:
         original_code = conout
-        view = ModeSelectionView()
+        preset_methods = await Hercules.get_preset_methods(optional_preset) if optional_preset else None
+        view = ModeSelectionView(preset_methods)
 
         await interaction.edit_original_response(content=f"Please select the obfuscation methods you want to use for {url}.", view=view)
 
@@ -898,7 +865,7 @@ async def cmd_obfuscate_url(interaction: discord.Interaction,
         with open(file_path, 'w', encoding='utf8') as f:
             f.write(conout)
 
-        success, conout = Hercules.obfuscate(file_path, selected_bits, optional_preset)
+        success, conout = await Hercules.obfuscate(file_path, selected_bits)
         if not success:
             view = AskSendDebug()
 
@@ -917,23 +884,16 @@ async def cmd_obfuscate_url(interaction: discord.Interaction,
             await Functions.send_file(interaction, file_path)
 
 
-#Fetch file from upload
-@tree.command(name = 'obfuscate_file', description = 'Upload a Lua file.')
-# @discord.app_commands.checks.cooldown(1, 60, key=lambda i: (i.user.id))
-@discord.app_commands.describe(file = 'File to be obfuscated.',
-                               optional_preset = 'Optional presets that can be used.'
-                               )
+@tree.command(name='obfuscate_file', description='Upload a Lua file.')
+@discord.app_commands.describe(file='File to be obfuscated.', optional_preset='Optional presets that can be used.')
 @discord.app_commands.choices(
-    optional_preset = [
-        discord.app_commands.Choice(name='Minimal parameters for lighter obfuscation.', value='min'),
-        discord.app_commands.Choice(name='Moderate parameters for balanced obfuscation.', value='mid'),
-        discord.app_commands.Choice(name='Maximum parameters for heavier obfuscation.', value='max')
-        ]
-    )
-async def cmd_obfuscate_file(interaction: discord.Interaction,
-             file: discord.Attachment,
-   optional_preset: str = None
-            ):
+    optional_preset=[
+        discord.app_commands.Choice(name='Light obfuscation for basic protection', value='light'),
+        discord.app_commands.Choice(name='Balanced obfuscation with good protection', value='balanced'),
+        discord.app_commands.Choice(name='Heavy obfuscation with maximum protection', value='heavy')
+    ]
+)
+async def cmd_obfuscate_file(interaction: discord.Interaction, file: discord.Attachment, optional_preset: str = None):
     await interaction.response.defer(ephemeral=True)
     if not file.filename.endswith('.lua'):
         await interaction.edit_original_response(content="Please upload a `.lua` file.")
@@ -988,9 +948,8 @@ async def cmd_obfuscate_file(interaction: discord.Interaction,
                 with open(file_path, 'w', encoding='utf8') as f:
                     f.write(lua_code)
 
-    isValid, conout = Hercules.isValidLUASyntax(lua_code)
+    isValid, conout = await Hercules.isValidLUASyntax(lua_code)
     if not isValid:
-        # Check if output exceeds Discord's character limit (adding some margin for the message text and markdown)
         if len(conout) > 1900:
             with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, encoding='utf-8', mode='w') as temp_file:
                 temp_file.write(conout)
@@ -1002,13 +961,14 @@ async def cmd_obfuscate_file(interaction: discord.Interaction,
             await interaction.edit_original_response(content=f"The uploaded file does not contain valid Lua syntax.:\n```txt\n{conout}```")
         os.remove(file_path)
     else:
-        view = ModeSelectionView()
+        preset_methods = await Hercules.get_preset_methods(optional_preset) if optional_preset else None
+        view = ModeSelectionView(preset_methods)
         await interaction.edit_original_response(content=f"Please select the obfuscation methods you want to use for {file.filename}.", view=view)
         await view.wait()
 
         selected_bits = view.selected_bits
 
-        success, conout = Hercules.obfuscate(file_path, selected_bits, optional_preset)
+        success, conout = await Hercules.obfuscate(file_path, selected_bits)
         if not success:
             view = AskSendDebug()
 
@@ -1027,10 +987,9 @@ async def cmd_obfuscate_file(interaction: discord.Interaction,
             await Functions.send_file(interaction, file_path)
 
 
-#Errorcheck from url
-@tree.command(name = 'check_url', description = 'Check if the URL is reachable and contains valid Lua syntax.')
+@tree.command(name='check_url', description='Check if the URL is reachable and contains valid Lua syntax.')
 @discord.app_commands.checks.cooldown(2, 60, key=lambda i: (i.user.id))
-@discord.app_commands.describe(url = 'The URL to check.')
+@discord.app_commands.describe(url='The URL to check.')
 async def cmd_check_url(interaction: discord.Interaction, url: str):
     await interaction.response.defer(ephemeral=True)
     valid, conout = await Functions.is_valid_url_and_lua_syntax(url)
@@ -1044,10 +1003,9 @@ async def cmd_check_url(interaction: discord.Interaction, url: str):
         await interaction.followup.send(content="The URL is reachable and contains valid Lua syntax.")
 
 
-#Error check from file
-@tree.command(name = 'check_file', description = 'Check if the uploaded file contains valid Lua syntax.')
+@tree.command(name='check_file', description='Check if the uploaded file contains valid Lua syntax.')
 @discord.app_commands.checks.cooldown(2, 60, key=lambda i: (i.user.id))
-@discord.app_commands.describe(file = 'The file to check.')
+@discord.app_commands.describe(file='The file to check.')
 async def cmd_check_file(interaction: discord.Interaction, file: discord.Attachment):
     await interaction.response.defer(ephemeral=True)
     if not file.filename.endswith('.lua'):
@@ -1064,7 +1022,7 @@ async def cmd_check_file(interaction: discord.Interaction, file: discord.Attachm
     with open(file_path, 'r', encoding='utf8') as f:
         lua_code = f.read()
 
-    isValid, conout = Hercules.isValidLUASyntax(lua_code)
+    isValid, conout = await Hercules.isValidLUASyntax(lua_code)
     if not isValid:
         with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, encoding='utf-8', mode='w') as temp_file:
             temp_file.write(conout)
@@ -1074,8 +1032,6 @@ async def cmd_check_file(interaction: discord.Interaction, file: discord.Attachm
     else:
         await interaction.followup.send(content="The uploaded file contains valid Lua syntax.")
     os.remove(file_path)
-
-
 
 
 if __name__ == '__main__':

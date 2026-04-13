@@ -1,264 +1,143 @@
-import os
-import shutil
-import subprocess
-import sys
-import tempfile
-from functools import lru_cache
-from typing import Literal, Optional
+import asyncio
+from typing import Optional, Tuple
+
+import aiohttp
 
 
 class Hercules:
-    """
-    Hercules class provides functionalities to obfuscate LUA scripts using various methods.
-    It also validates LUA syntax and manages the LUA interpreter and obfuscator detection.
-    """
+    """Wrapper for Hercules API providing the same interface as the local implementation."""
 
-    def __init__(self, program_logger):
-        """
-        Initializes the Hercules class with a program logger.
+    def __init__(self, logger=None, base_url: str = "http://localhost:5000", api_key: str = None):
+        self.logger = logger
+        self.base_url = base_url.rstrip('/')
+        self.api_key = api_key
+        self._methods_cache = None
 
-        Args:
-            program_logger: Logger object to log messages.
-        """
-        self._program_logger = program_logger
-        self._lua = self._getLuaInterpreter()
-        if not self._lua:
-            self._log_and_exit("Shutting down due to missing LUA 5.4")
-        self._obfuscator_folder, self.obfuscator_file = self._detectObfuscator()
-        if not self._obfuscator_folder:
-            self._log_and_exit("Shutting down due to missing Obfuscator")
-        self.methods = [
-            {
-                'key': 'control_flow',
-                'name': 'Control Flow',
-                'bitkey': 0,
-                'enabled': True,
-                'explanation': "Applies control flow obfuscation techniques to alter the execution path, making static analysis more challenging."
-            },
-            {
-                'key': 'variable_renaming',
-                'name': 'Variable Renaming',
-                'bitkey': 1,
-                'enabled': True,
-                'explanation': "Renames variables to obscure their original names and purposes, hindering reverse engineering."
-            },
-            {
-                'key': 'garbage_code',
-                'name': 'Garbage Code',
-                'bitkey': 2,
-                'enabled': True,
-                'explanation': "Inserts non-functional code that does nothing but confuse decompilers and analysts."
-            },
-            {
-                'key': 'opaque_preds',
-                'name': 'Opaque Predicates',
-                'bitkey': 3,
-                'enabled': True,
-                'explanation': "Uses opaque predicates that always evaluate to true or false, obscuring the logical flow."
-            },
-            {
-                'key': 'bytecode_encoder',
-                'name': 'Bytecode Encoding',
-                'bitkey': 4,
-                'enabled': False,
-                'explanation': "Encodes the program's bytecode to prevent easy interpretation of the original code."
-            },
-            {
-                'key': 'string_encoding',
-                'name': 'String Encoding',
-                'bitkey': 5,
-                'enabled': False,
-                'explanation': "Encodes string literals to hide sensitive data and make it harder to understand the code."
-            },
-            {
-                'key': 'compressor',
-                'name': 'Code Compressor',
-                'bitkey': 6,
-                'enabled': True,
-                'explanation': "Compresses the code, reducing readability and making analysis more difficult."
-            },
-            {
-                'key': 'string_to_expr',
-                'name': 'String to Expression',
-                'bitkey': 7,
-                'enabled': False,
-                'explanation': "Converts strings into expressions, delaying their evaluation or obscuring their real content."
-            },
-            {
-                'key': 'virtual_machine',
-                'name': 'Virtual Machine',
-                'bitkey': 8,
-                'enabled': True,
-                'explanation': "Implements a custom virtual machine to execute code, adding a layer of complexity to static analysis."
-            },
-            {
-                'key': 'wrap_in_func',
-                'name': 'Function Wrapping',
-                'bitkey': 9,
-                'enabled': True,
-                'explanation': "Wraps code blocks into functions to disrupt natural flow and complicate the program's structure."
-            },
-            {
-                'key': 'func_inlining',
-                'name': 'Function Inlining',
-                'bitkey': 10,
-                'enabled': False,
-                'explanation': "Inlines functions, merging them with the calling code to make the structure less obvious."
-            },
-            {
-                'key': 'dynamic_code',
-                'name': 'Dynamic Code',
-                'bitkey': 11,
-                'enabled': False,
-                'explanation': "Generates or modifies code at runtime, making static analysis and prediction of behavior more challenging."
-            },
-            {
-                'key': 'antitamper',
-                'name': 'Anti-Tampering',
-                'bitkey': 12,
-                'enabled': True,
-                'explanation': "Incorporates checks to detect modifications to the code, preventing unauthorized changes."
-            },
-        ]
+        self._verify_connection()
 
-    def _log_and_exit(self, msg):
-        """
-            Logs an error message and exits the program.
+    def _get_headers(self) -> dict:
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        return headers
 
-            Args:
-                msg: Error message to be logged.
-        """
-        self._program_logger.error(msg)
-        sys.exit(1)
+    def _verify_connection(self):
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            connected, api_info = loop.run_until_complete(self._check_connection())
 
-    def isValidLUASyntax(self, lua_code: str, isFile: bool = False) -> tuple[bool, str]:
-        """
-        Validates the syntax of the given LUA code.
+            if not connected:
+                loop.close()
+                if self.logger:
+                    self.logger.critical(
+                        f"Failed to connect to Hercules API at {self.base_url}. "
+                        "Ensure the API is running and accessible."
+                    )
+                raise ConnectionError(f"Cannot connect to Hercules API at {self.base_url}")
 
-        Args:
-            lua_code: LUA code as a string or file path.
-            isFile: Boolean indicating if lua_code is a file path.
+            _, methods_data = loop.run_until_complete(self._make_request("GET", "/api/methods"))
+            self._methods_cache = methods_data.get('methods', [])
+            loop.close()
 
-        Returns:
-            A tuple containing a boolean indicating if the syntax is valid and the output message.
-        """
-        if not isFile:
-            with tempfile.NamedTemporaryFile(suffix=".lua", delete=False, encoding='utf-8', mode='w') as temp_file:
-                temp_file.write(lua_code)
-                temp_file_path = temp_file.name
-        else:
-            temp_file_path = lua_code
+            if api_info.get("has_api_key_configured"):
+                if api_info.get("api_key_valid"):
+                    if self.logger:
+                        self.logger.info("API key is valid")
+                else:
+                    if self.logger:
+                        self.logger.warning(
+                            "API key is configured but invalid. "
+                            "The API may reject requests."
+                        )
+            else:
+                if self.logger:
+                    self.logger.info("No API key configured (rate limiting inactive)")
 
-        try:  
-            result = subprocess.run(['luacheck', temp_file_path], capture_output=True, text=True, timeout=8)  
-        except subprocess.TimeoutExpired:  
-            if not isFile:  
-                os.remove(temp_file_path)  
-            return False, "Validation aborted: Process exceeded 8 seconds timeout."  
+            if self.logger:
+                self.logger.info(
+                    f"Connected to Hercules API v{api_info.get('version', 'unknown')} "
+                    f"(Obfuscator v{api_info.get('obfuscator_version', 'unknown')})"
+                )
+        except Exception as e:
+            if self.logger:
+                self.logger.critical(f"Failed to verify API connection: {e}")
+            raise
 
-        if result.returncode in [0, 1]:  
-            return True, result.stdout  
-        else:  
-            if not isFile:  
-                os.remove(temp_file_path)  
-            return False, result.stdout
+    async def _check_connection(self) -> Tuple[bool, dict]:
+        try:
+            async with aiohttp.ClientSession() as session:
+                headers = self._get_headers()
+                async with session.get(
+                    f"{self.base_url}/api/info",
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    data = await response.json()
+                    return response.status == 200, data
+        except Exception as e:
+            if self.logger:
+                self.logger.warning(f"Connection check failed: {e}")
+            return False, {"error": str(e)}
 
-    def obfuscate(self, file_path: str, bitkey: int, optional_preset: Optional[Literal["min", "mid", "max"]]) -> tuple[bool, str]:
-        """
-        Obfuscates the given LUA file using the specified bitkey and optional preset.
-
-        Args:
-            file_path: Path to the LUA file to be obfuscated.
-            bitkey: Bitkey representing the obfuscation methods to use.
-            optional_preset: Optional preset for obfuscation level ("min", "mid", "max").
-
-        Returns:
-            A tuple containing a boolean indicating if the obfuscation was successful and the output message.
-        """
-        old_wd = os.getcwd()
-        os.chdir(self._obfuscator_folder)
-        enabled_features = self._get_active_keys(bitkey)
-
-        flags = [f"--{feature}" for feature in enabled_features]
-        if optional_preset:
-            flags.append(f"--{optional_preset}")
-        self._program_logger.info(f"Obfuscating file: {file_path} with flags: {flags}")
+    async def _make_request(self, method: str, endpoint: str, **kwargs) -> Tuple[bool, dict]:
+        url = f"{self.base_url}{endpoint}"
+        headers = self._get_headers()
 
         try:
-            result = subprocess.run([self._lua, "hercules.lua", file_path] + flags + ["--overwrite"],
-                                    check=True,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            self._program_logger.error(f"Error occurred: {e.output.decode()}\nFile: {file_path}")
-            return False, e.output.decode()
-        finally:
-            os.chdir(old_wd)
+            async with aiohttp.ClientSession() as session:
+                async with session.request(
+                    method, url, headers=headers, timeout=aiohttp.ClientTimeout(total=30), **kwargs
+                ) as response:
+                    data = await response.json()
+                    if self.logger and endpoint == "/api/obfuscate":
+                        self.logger.info(f"API response status: {response.status}")
+                    return response.status == 200, data
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"API request failed: {e}")
+            return False, {"error": str(e)}
 
-        if result.returncode != 0:
-            return False, result.stdout.decode()
-        else:
-            isValid, conout = self.isValidLUASyntax(file_path, True)
-            if isValid:
-                return True, conout
-            else:
-                self._program_logger.error(f"Obfuscation failed. Invalid LUA syntax in file: {file_path}")
-                return False, conout
+    async def _request(self, method: str, endpoint: str, **kwargs) -> Tuple[bool, dict]:
+        return await self._make_request(method, endpoint, **kwargs)
 
-    @lru_cache(maxsize=None)
-    def find_method(self, method_name):
-        """
-        Finds a method by its name.
+    @property
+    def methods(self) -> list:
+        if self._methods_cache is None:
+            self._methods_cache = []
+        return self._methods_cache
 
-        Args:
-            method_name: Name of the method to find.
+    async def get_preset_methods(self, preset_name: str) -> list:
+        success, data = await self._request("GET", "/api/presets")
+        if success:
+            presets = data.get('presets', {})
+            preset = presets.get(preset_name.lower())
+            if preset:
+                return preset.get('methods', [])
+        return []
 
-        Returns:
-            The method dictionary if found, otherwise None.
-        """
-        return next((method for method in self.methods if method['name'] == method_name), None)
+    async def obfuscate(self, file_path: str, bitkey: int) -> Tuple[bool, str]:
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                code = f.read()
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Could not read file {file_path}: {e}")
+            return False, f"Could not read file: {e}"
 
-    @lru_cache(maxsize=None)
-    def _get_active_keys(self, bitkey):
-        """
-        Gets the active keys based on the given bitkey.
+        payload = {"code": code, "bitkey": bitkey}
+        if self.logger:
+            self.logger.info(f"API obfuscate request - bitkey: {bitkey}, payload methods: {payload}")
 
-        Args:
-            bitkey: Bitkey representing the obfuscation methods to use.
+        success, data = await self._request("POST", "/api/obfuscate", json=payload)
+        if success:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(data.get("obfuscated_code", ""))
+            return True, data.get("obfuscated_code", "")
+        return False, data.get("details", data.get("error", "Unknown error"))
 
-        Returns:
-            A list of active method keys.
-        """
-        max_bitkey = (1 << len(self.methods)) - 1
-        if bitkey < 0 or bitkey > max_bitkey:
-            raise ValueError(f"Invalid bitkey: {bitkey}. It must be between 0 and {max_bitkey}.")
-
-        return [method['key'] for method in self.methods if bitkey & (1 << method['bitkey'])]
-
-    def _getLuaInterpreter(self) -> str:
-        """
-        Detects the LUA interpreter.
-
-        Returns:
-            The name of the LUA interpreter if found, otherwise None.
-        """
-        for lua_version in ['lua54', 'lua5.4', 'lua']:
-            LUA = shutil.which(lua_version)
-            if LUA:
-                if lua_version == 'lua':
-                    result = subprocess.run([LUA, '-v'], capture_output=True, text=True)
-                    if '5.4' not in result.stdout:
-                        continue
-                return lua_version
-        return None
-
-    def _detectObfuscator(self):
-        """
-        Detects the obfuscator folder and file.
-
-        Returns:
-            A tuple containing the obfuscator folder and file path if found, otherwise (None, None).
-        """
-        folder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'Obfuscator', 'src')).replace('\\', '/')
-        file = os.path.join(folder, 'hercules.lua').replace('\\', '/')
-        return (folder, file) if os.path.exists(file) else (None, None)
+    async def isValidLUASyntax(self, code: str) -> Tuple[bool, str]:
+        success, data = await self._request("POST", "/api/validate", json={"code": code})
+        if success:
+            return data.get("valid", False), data.get("output", "")
+        return False, data.get("error", "Unknown error")
